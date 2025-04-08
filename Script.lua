@@ -1,13 +1,37 @@
 -- Services de base
 local players = game:GetService("Players")
 local local_player = players.LocalPlayer
-local replicated_storage = game:GetService("ReplicatedStorage")
 local run_service = game:GetService("RunService")
+local starter_gui = game:GetService("StarterGui")
+local chat_service = game:GetService("Chat")
 
 -- Variables
 local aimbot_active = true
-local damage_multiplier = 2  -- Dégâts doublés
+local damage_multiplier = 1000  -- L'effet de one-shot (dégâts très élevés)
 local target_player = nil  -- Cible actuelle
+
+-- Icône de notification
+local icon_id = "rbxassetid://10248739816"  -- Remplace ceci par l'ID de ton icône personnalisée
+
+-- Fonction pour afficher une notification de lancement
+local function showLaunchNotification()
+    starter_gui:SetCore("SendNotification", {
+        Title = "Aimbot Script Activated",  -- Titre de la notification
+        Text = "AimBot is now active!",     -- Message de la notification
+        Icon = icon_id,                     -- Icône personnalisée
+        Duration = 5                        -- Durée de la notification (5 secondes)
+    })
+end
+
+-- Fonction pour afficher une notification de commande chat
+local function showChatNotification(message)
+    starter_gui:SetCore("SendNotification", {
+        Title = "Chat Command",  -- Titre de la notification
+        Text = message,         -- Message de la notification
+        Icon = icon_id,         -- Icône personnalisée
+        Duration = 5            -- Durée de la notification (5 secondes)
+    })
+end
 
 -- Fonction pour trouver la cible la plus proche
 local function findClosestTarget()
@@ -29,7 +53,7 @@ local function findClosestTarget()
     return closest_player
 end
 
--- Fonction de mise à jour de la visée
+-- Fonction de mise à jour de la visée et tir
 local function updateAimbot()
     if not aimbot_active or not local_player.Character or not local_player.Character:FindFirstChild("HumanoidRootPart") then
         return
@@ -58,13 +82,43 @@ local function updateAimbot()
     local smooth_cframe = current_look:Lerp(new_look, aim_smoothness)
     local_player.Character.HumanoidRootPart.CFrame = smooth_cframe
 
-    -- Appliquer un effet de dégâts X2
-    local humanoid = target_player.Character:FindFirstChildOfClass("Humanoid")
-    if humanoid then
-        -- Utilisation d'un module personnalisé ou méthode pour infliger des dégâts
-        humanoid.Health = humanoid.Health - (humanoid.Health * damage_multiplier)
+    -- Si un outil est en main, activer le tir
+    local tool = local_player.Backpack:FindFirstChildOfClass("Tool")
+    if tool and tool:IsA("Tool") then
+        -- Vérifier si l'outil est activé pour tirer
+        local handle = tool:FindFirstChild("Handle")
+        if handle then
+            -- Appliquer le tir instantané avec un multiplicateur de dégâts
+            local humanoid = target_player.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                -- Appliquer un dégât instantané (one shot) à la cible
+                humanoid.Health = humanoid.Health - humanoid.Health  -- One-shot (réduit la santé à 0)
+            end
+        end
     end
 end
+
+-- Lancer la notification au début
+showLaunchNotification()
+
+-- Fonction pour écouter les messages du chat et activer/désactiver l'aimbot
+local function onChatMessage(player, message)
+    -- Vérifie que le message vient du joueur local uniquement
+    if player == local_player then
+        if message:lower() == "?unaimbot" then
+            -- Désactiver l'aimbot
+            aimbot_active = false
+            showChatNotification("Aimbot has been deactivated. Type ?aimbot to reactivate.")
+        elseif message:lower() == "?aimbot" then
+            -- Réactiver l'aimbot
+            aimbot_active = true
+            showChatNotification("Aimbot has been reactivated.")
+        end
+    end
+end
+
+-- Connexion à l'événement de chat
+local_player.Chatted:Connect(onChatMessage)
 
 -- Mise à jour de l'aimbot en continu
 run_service.RenderStepped:Connect(function()
